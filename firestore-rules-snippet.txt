@@ -1,0 +1,29 @@
+/* IMPORTANTE: integra este bloque dentro del service cloud.firestore existente.
+   No reemplaces todo firestore.rules: tu app ya tiene reglas para trivias y perfiles.
+   Este es un prototipo funcional; antes de producción endurece las reglas para validar
+   cada transición de estado y evitar que un cliente altere roles o palabras secretas. */
+match /impostorRooms/{roomId} {
+  allow get: if request.auth != null;
+  allow list: if false;
+  allow create: if request.auth != null
+    && request.resource.data.code == roomId
+    && request.resource.data.hostUid == request.auth.uid
+    && request.resource.data.status == 'waiting'
+    && request.resource.data.players is list
+    && request.resource.data.players.size() == 1
+    && request.resource.data.players[0].uid == request.auth.uid
+    && request.resource.data.maxPlayers is int
+    && request.resource.data.maxPlayers >= 3
+    && request.resource.data.maxPlayers <= 12
+    && request.resource.data.impostorCount is int
+    && request.resource.data.impostorCount >= 1
+    && request.resource.data.impostorCount <= 2;
+  // Reglas provisionales para que el MVP de varios móviles pueda probarse.
+  // No publicar en producción sin restringir qué campos puede cambiar cada jugador.
+  allow update: if request.auth != null
+    && resource.data.status in ['waiting', 'playing']
+    && request.resource.data.hostUid == resource.data.hostUid
+    && request.resource.data.code == resource.data.code
+    && request.resource.data.maxPlayers == resource.data.maxPlayers;
+  allow delete: if request.auth != null && resource.data.hostUid == request.auth.uid;
+}
